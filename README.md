@@ -10,7 +10,7 @@ International Journal of High Performance Computing Applications, 36(4):510–52
 ## To cite tsunamiTPU
 If you use this code, please cite it with:
 ```
-@article{maddenMarrasSuckale2023,\\
+@article{maddenMarrasSuckale2023,
    author = {Madden, I. and Marras, S. and Suckale, J.},
    title = {Levering Google’s Tensor Processing Units for
 advancing tsunami-risk mitigation planning},
@@ -18,7 +18,7 @@ advancing tsunami-risk mitigation planning},
    year  = {2023},
    volume  = {},
    pages  = {},
-},\\
+}
 ```
 
 ## Contacts
