@@ -8,12 +8,12 @@ physics simulations with tensor processing units: An inundation modeling example
 International Journal of High Performance Computing Applications, 36(4):510–523, 2022.
 
 ## To cite this code:
-@article{maddenMarrasSuckale2023,
-   author = {Madden, I. and Marras, S. and Suckale, J.},
+@article{maddenMarrasSuckale2023,\\
+   author = {Madden, I. and Marras, S. and Suckale, J.},\\
    title = {Levering Google’s Tensor Processing Units for
-advancing tsunami-risk mitigation planning},
-   journal = {},
-   year  = {2023},
-   volume  = {},
-   pages  = {},
-},
+advancing tsunami-risk mitigation planning},\\
+   journal = {},\\
+   year  = {2023},\\
+   volume  = {},\\
+   pages  = {},\\
+},\\
