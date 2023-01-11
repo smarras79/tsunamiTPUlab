@@ -1,3 +1,70 @@
+
+# Floating point tolerance for timesteps.
+TIMESTEP_EPS = 1e-5
+# Floating point tolerance used in Saint-Venant step function.
+SAINT_VENANT_EPS = 1e-1
+CUTOFF_MAX = 1e15
+_G = 9.8
+# Manning coefficient defaults. NB: The simulation can be more accurate if a
+# river mask is provided which defines th river region of the DEM. In that case,
+# `MANNING_COEFF_FLOODPLAIN` is used in the non-river region (i.e., the
+
+# floodplain region). In the Conawy example, we take a simpler approach and use
+# `np.ones()` for the river mask, so `MANNING_COEFF_FLOODPLAIN` is unused.
+MANNING_COEFF_FLOODPLAIN = .02
+MANNING_COEFF_RIVER = .05
+MANNING_COEFF = .0
+
+
+# The dynamic states are:
+#   h: the absolute height
+#   q_x: The water flow in the x direction.
+#   q_y: The water flow in the y direction.
+#   t: The current simulation time.
+#   dt: The timestep size. Note that `dt` is held constant in this simulation.
+_H = 'h'
+_Q_X = 'q_x'
+_U_PREV = 'u_prev'
+_Q_Y = 'q_y'
+_V_PREV = 'v_prev'
+_T = 't'
+_DT = 'dt'
+
+INIT_STATE_KEYS = [_H, _Q_X, _Q_Y]
+STATE_KEYS = INIT_STATE_KEYS + [_T, _DT]
+
+# The static states are:
+#   m: The Manning coefficient matrix.
+#   e: The water bed elevation.
+# We also specify the boundaries using {L,R,T,B}_BOUNDARIES.
+_M = 'm'
+_E = 'e'
+
+_I_L_BOUNDARY = 'i_left_boundary'
+_I_R_BOUNDARY = 'i_right_boundary'
+_I_T_BOUNDARY = 'i_top_boundary'
+_I_B_BOUNDARY = 'i_bottom_boundary'
+
+_O_L_BOUNDARY = 'o_left_boundary'
+_O_R_BOUNDARY = 'o_right_boundary'
+_O_T_BOUNDARY = 'o_top_boundary'
+_O_B_BOUNDARY = 'o_bottom_boundary'
+
+_M_L_BOUNDARY = 'm_left_boundary'
+_M_R_BOUNDARY = 'm_right_boundary'
+_M_T_BOUNDARY = 'm_top_boundary'
+_M_B_BOUNDARY = 'm_bottom_boundary'
+
+L_BOUNDARIES = (_I_L_BOUNDARY, _M_L_BOUNDARY, _O_L_BOUNDARY)
+R_BOUNDARIES = (_I_R_BOUNDARY, _M_R_BOUNDARY, _O_R_BOUNDARY)
+T_BOUNDARIES = (_I_T_BOUNDARY, _M_T_BOUNDARY, _O_T_BOUNDARY)
+B_BOUNDARIES = (_I_B_BOUNDARY, _M_B_BOUNDARY, _O_B_BOUNDARY)
+
+ADDITIONAL_STATE_KEYS = [
+    _M, _E, *L_BOUNDARIES, *R_BOUNDARIES, *T_BOUNDARIES, *B_BOUNDARIES
+]
+SER_EXTENSION = 'ser'
+
 from scipy.linalg.decomp_qr import qr_multiply
 """Runs TPU Saint-Venant Simulations."""
 from user_constants import *
@@ -1479,7 +1546,7 @@ def download_from_bucket(bucket_filename: Text) -> Text:
   return tempf.name
 
 
-def get_dem_tiff_filename(dem_bucket_filename: Text, resolution: int) -> Text:
+def get_dem_tiff_filename(dem_tiff_filename: Text, resolution: int) -> Text:
   """Returns the local filename of the DEM tiff.
 
   The file is stored on Google Cloud and is copied to a temporary file location
@@ -1490,14 +1557,15 @@ def get_dem_tiff_filename(dem_bucket_filename: Text, resolution: int) -> Text:
   Returns:
     File path to local temporary DEM.
   """
-  with tf.io.gfile.GFile(dem_bucket_filename, 'rb') as f:
+  tempf = tempfile.NamedTemporaryFile(delete=False)
+  with tf.io.gfile.GFile(dem_tiff_filename, 'rb') as f:
     file = f.read()
   with open(tempf.name, 'wb') as f:
     f.write(file)
   return tempf.name
 
 
-def load_dem_from_tiff_file(dem_tiff_filename: Text,resolution = None) -> np.ndarray:
+def load_dem_from_tiff_file(dem_tiff_filename: Text,resolution = None,smooth_kernel = 3) -> np.ndarray:
   """Loads DEM as a numpy array.
 
   Args:
@@ -1513,7 +1581,7 @@ def load_dem_from_tiff_file(dem_tiff_filename: Text,resolution = None) -> np.nda
     if resolution != None:
       base_lx = geoinfo[1] * conv_map.shape[0]
       base_ly = geoinfo[5] * conv_map.shape[1]
-      conv_map = convolve2d(conv_map,np.ones((3,3))/9.0,mode='same',boundary='symm')
+      conv_map = convolve2d(conv_map,np.ones((smooth_kernel,smooth_kernel))/(smooth_kernel*smooth_kernel),mode='same',boundary='symm')
       base_x = np.linspace(0, base_lx,conv_map.shape[0])
       base_y = np.linspace(0, base_ly,conv_map.shape[1])
       dem_function = scipy.interpolate.interp2d(base_y,base_x,conv_map,kind='cubic')
@@ -2575,13 +2643,9 @@ class TimedNestedLoopStepRunner:
   def run_step(self, sess, step, total_num_steps: int) -> int:
     """Runs `_num_cycles * _num_steps_per_cycle` time steps."""
     self.save_output_files(sess, 0)
-    flops = tf.profiler.profile(options = tf.profiler.ProfileOptionBuilder.float_operation())
-    print('FLOP before freezing', flops.total_float_ops)
     for _ in range(self._num_cycles):
       t0 = time.time()
       sess.run(step, feed_dict={self._step_count_ph: total_num_steps})
-      flops = tf.profiler.profile(options = tf.profiler.ProfileOptionBuilder.float_operation())
-      print('FLOP before freezing', flops.total_float_ops)
       run_time = time.time() - t0
       print(f'Ran {self._num_steps_per_cycle} in {run_time}s '
             f'({1e3 * run_time / self._num_steps_per_cycle} ms / step)')
@@ -2756,90 +2820,3 @@ def get_sv_params(dem_shape, resolution, num_secs,
 def save_np_array(run_dir: Text, filename: Text, np_array: np.ndarray):
   with tf.io.gfile.GFile(os.path.join(run_dir, filename), 'wb') as f:
     np.save(f, np_array)
-
-
-class TPUSimulationManager:
-  """A class that manages a simulation.
-
-  This concrete class is largely responsible for creating and running the
-  simulation. It requires a `GridParametrization`, which it uses to define
-  the computation grid. It also requires a `TPUSimulationBuilder` in order to
-  create the `TPUSimulation`. Next, it requires a `RunnerBuilder` to create the
-  runner that will actually perform the simulation.
-
-  Given these ingredients, the manager creates a `tf.Session`, and uses it
-  to initialize the `TPUSimulation`. It uses the `TPUSimulation` to initialize
-  the `TPUSimulationRunner` object. Having assembled the runner, the simulation
-  is started with a call to `run_simulation`. Finally, the TPU session is shut
-  down.
-  """
-
-  def __init__(
-      self,
-      params: GridParametrization,
-      simulation_builder,
-      session_runner_builder) -> None:
-    """Initializes a `TPUSimulationManager`.
-
-    Args:
-      params: An instance of `GridParametrization`.
-      simulation_builder: An instance of `TPUSimulationBuilder`.
-      session_runner_builder: An instance of `SessionRunnerBuilder`.
-    """
-    self._params = params
-    config = tf.ConfigProto(isolate_session_state=True)
-    self._sess = tf.Session(config=config, target=TPU_WORKER)
-    self._sim = simulation_builder(self._sess)
-    self._session_runner = session_runner_builder(self._sim)
-    self._sess.run(tf.global_variables_initializer())
-
-  def run_simulation(self, start_time_secs: float = 0) -> None:
-    """Runs the simulation."""
-    start_step = int(round(start_time_secs / self._params.dt))
-    self._session_runner(self._sess, start_step)
-
-  def __del__(self):
-    tf.tpu.shutdown_system()
-
-
-def get_sim_builder(
-    params: SaintVenantParams,
-    unpadded_dem: np.ndarray,
-    unpadded_manning_matrix: np.ndarray,
-    h_bcs: Sequence[BoundaryCondition],
-    q_x_bcs: Sequence[BoundaryCondition],
-    q_y_bcs: Sequence[BoundaryCondition],
-    water_initial_condition_function,
-    flux_initial_condition_function,
-    init_files_manager: InitFilesManager,
-    input_file_format: Optional[Text] = None,
-    start_time_secs: float = 0) -> Callable[[tf.Session], TPUSimulation]:
-  """Returns a function that builds a TPUSimulation given a `tf.Session`."""
-
-  init_fn_builder = (
-      SaintVenantRealisticInitFnBuilder(
-          params, INIT_STATE_KEYS, unpadded_dem, unpadded_manning_matrix,
-          init_files_manager, input_file_format,
-          start_time_secs, water_initial_condition_function, flux_initial_condition_function))
-
-  step_fn = SaintVenantRiverChannelStep(
-      ApplyKernelOp(), params, h_bcs, q_x_bcs, q_y_bcs)
-
-  step_fn = DynamicStepUpdater(
-      step_fn, num_secs_per_while_loop=params.num_secs_per_cycle, dt=params.dt)
-
-  step_fn = build_step_fn(params, step_fn, STATE_KEYS,
-                          ADDITIONAL_STATE_KEYS)
-
-  def sim_builder(sess):
-    topology = tf.tpu.experimental.Topology(
-        sess.run(tf.tpu.initialize_system()))
-
-    return TPUSimulation(
-        init_fn=init_fn_builder.init_fn,
-        step_fn=step_fn,
-        computation_shape=params.computation_shape,
-        tpu_topology=topology,
-        host_vars_filter=INIT_STATE_KEYS)
-
-  return sim_builder
