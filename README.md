@@ -22,4 +22,4 @@ advancing tsunami-risk mitigation planning},
 ```
 
 ## Contacts
-Feel free to contact: [Simone Marras](mailto:simone.marras@njit.edu), [Ian Madden](mailto:ianmadden@stanford.edu), [Jenny Suckale](mailto:jsuckale@stanford.edu)
+Feel free to contact: [Simone Marras](mailto:smarras@njit.edu), [Ian Madden](mailto:ianmadden@stanford.edu), [Jenny Suckale](mailto:jsuckale@stanford.edu)
