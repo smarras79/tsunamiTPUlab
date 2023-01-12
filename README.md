@@ -12,8 +12,7 @@ If you use this code, please cite it with:
 ```
 @article{maddenMarrasSuckale2023,
    author = {Madden, I. and Marras, S. and Suckale, J.},
-   title = {Levering Google’s Tensor Processing Units for
-advancing tsunami-risk mitigation planning},
+   title = {Leveraging Google's Tensor Processing Units for tsunami-risk mitigation planning},
    journal = {ArXiv},
    year  = {2023},
    volume  = {},
