@@ -16,7 +16,6 @@ If you use this code, please cite it with:
    journal = {ArXiv.org},
    year  = {2023},
    volume  = {arXiv:2301.12010},
-   pages  = {},
 }
 ```
 
