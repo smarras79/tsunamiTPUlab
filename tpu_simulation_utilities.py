@@ -23,6 +23,7 @@ MANNING_COEFF = .0
 #   t: The current simulation time.
 #   dt: The timestep size. Note that `dt` is held constant in this simulation.
 _H = 'h'
+_H_MAX = 'h_max'
 _Q_X = 'q_x'
 _U_PREV = 'u_prev'
 _Q_Y = 'q_y'
@@ -30,7 +31,7 @@ _V_PREV = 'v_prev'
 _T = 't'
 _DT = 'dt'
 
-INIT_STATE_KEYS = [_H, _Q_X, _Q_Y]
+INIT_STATE_KEYS = [_H, _Q_X, _Q_Y, _H_MAX]
 STATE_KEYS = INIT_STATE_KEYS + [_T, _DT]
 
 # The static states are:
@@ -91,6 +92,7 @@ import os
 from skimage import transform
 import tempfile
 import time
+from collections.abc import Sequence as collectionsSequence
 from typing import Any, Callable, Iterable, Sequence, List, Dict, Mapping, MutableMapping, MutableSequence, Optional, Text, Tuple, Union
 from scipy.signal import convolve2d
 import attr
@@ -327,7 +329,7 @@ def _replace_halo(plane, bc, dim):
   Raises:
     ValueError if parameters have incorrect values.
   """
-  if not isinstance(bc, collections.Sequence):
+  if not isinstance(bc, collectionsSequence):
     raise ValueError('`bc` must be a sequence `(type, value)`.')
 
   bc_type, bc_value = bc
@@ -1707,6 +1709,7 @@ class SaintVenantRealisticInitFnBuilder(InitFnBuilder):
     dem = add_padding(self._unpadded_dem, self._params.left_padding,
                       self._params.top_padding)
     output.update(water_initial_condition(_H, coordinates, self._params, self._unpadded_dem,self._water_initial_condition_function))
+    output.update(water_initial_condition(_H_MAX, coordinates, self._params, self._unpadded_dem,self._water_initial_condition_function))
     output.update(flux_initial_condition(_Q_Y, coordinates, self._params, self._unpadded_dem,self._flux_initial_condition_function))
     types = (tf.float32, tf.float32, bool)
     for key, typ in zip(L_BOUNDARIES + R_BOUNDARIES, types * 2):
@@ -2397,7 +2400,7 @@ class SaintVenantRiverChannelStep:
       q_y_bcs[1 - int(side / 2)][side % 2] = (q_y_bc.bc_type, q_y_bc.value)
     return h_bcs, q_x_bcs, q_y_bcs
 
-  def update_states(self, h, q_x, q_y, t, m, e, h_bcs, q_x_bcs, q_y_bcs, dt, replica_id,
+  def update_states(self, h, h_max, q_x, q_y, t, m, e, h_bcs, q_x_bcs, q_y_bcs, dt, replica_id,
                     replicas, is_first):
     """Updates states by doing halo exchanges and a time step."""
     # Note that for the very first call to `update_states`, the halos are
@@ -2419,10 +2422,12 @@ class SaintVenantRiverChannelStep:
                                      m, e, h, q_x, q_y, extra_boundary, replica_id, replicas,q_x_bcs,q_y_bcs,h_bcs,
                                      self._params.left_padding,
                                      self._params.top_padding)
+    h_max = [tf.math.maximum(h_max[0], h[0])]
     return {
         'h': h,
         'q_x': q_x,
         'q_y': q_y,
+        'h_max': h_max,
         't': [ti + dt_scalar for ti in t],
         'dt': dt
     }
@@ -2433,6 +2438,7 @@ class SaintVenantRiverChannelStep:
     del step_id
 
     h = states[_H]
+    h_max = states[_H_MAX]
     q_x = states[_Q_X]
     q_y = states[_Q_Y]
     t = states[_T]
@@ -2467,7 +2473,7 @@ class SaintVenantRiverChannelStep:
     for dim in (0, 1):
       is_first.append(is_first_replica(replica_id, replicas, dim))
 
-    return self.update_states(h, q_x, q_y, t, m, e, h_bcs, q_x_bcs, q_y_bcs, dt,
+    return self.update_states(h, h_max, q_x, q_y, t, m, e, h_bcs, q_x_bcs, q_y_bcs, dt,
                               replica_id, replicas, is_first)
 
 
