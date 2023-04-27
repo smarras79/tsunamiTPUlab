@@ -12,14 +12,12 @@ If you use this code, please cite it with:
 ```
 @article{maddenMarrasSuckale2023,
    author = {Madden, I. and Marras, S. and Suckale, J.},
-   title = {Levering Google’s Tensor Processing Units for
-advancing tsunami-risk mitigation planning},
-   journal = {ArXiv},
+   title = {Leveraging Google's Tensor Processing Units for tsunami-risk mitigation planning in the Pacific Northwest and beyond},
+   journal = {ArXiv.org},
    year  = {2023},
-   volume  = {},
-   pages  = {},
+   volume  = {arXiv:2301.12010},
 }
 ```
 
 ## Contacts
-Feel free to contact: [Simone Marras](mailto:simone.marras@njit.edu), [Ian Madden](mailto:ianmadden@stanford.edu), [Jenny Suckale](mailto:jsuckale@stanford.edu)
+Feel free to contact: [Simone Marras](mailto:smarras@njit.edu), [Ian Madden](mailto:ianmadden@stanford.edu), [Jenny Suckale](mailto:jsuckale@stanford.edu)
